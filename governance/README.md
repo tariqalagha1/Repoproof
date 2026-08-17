@@ -1,7 +1,7 @@
 # repofit — RepoProof AI
 
 **Codename:** `repofit`
-**Source repository:** https://github.com/tariqalagha1/repoproof-ai
+**Source repository:** https://github.com/tariqalagha1/Repoproof
 **Product:** Automated software repository verification — evidence-backed verification gates, capability/risk identification, controlled upgrade recommendations.
 
 repofit answers one question for any software repository: **"is this repo fit to trust and deploy?"** — and produces a scored, evidence-backed verdict rather than an opinion.

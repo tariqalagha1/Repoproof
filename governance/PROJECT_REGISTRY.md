@@ -18,7 +18,7 @@ Single source of truth for every project under the `ai-enterprise-os` umbrella. 
 
 ### repofit (RepoProof AI)
 
-- **source:** https://github.com/tariqalagha1/repoproof-ai
+- **source:** https://github.com/tariqalagha1/Repoproof
 - **status:** `NOT_STARTED` (registered to portfolio; governance scaffold authored; no runtime build/verification yet)
 - **stack:** Python ≥3.11 · FastAPI · SQLAlchemy(async) · PostgreSQL 16 · Next.js/TypeScript · Docker runner · provider-neutral LLM (fake + hermes adapter)
 - **pipeline:** 16-stage (00–15); all stages defined, none executed against a real target yet
