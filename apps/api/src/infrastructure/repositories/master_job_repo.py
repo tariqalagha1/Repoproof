@@ -27,6 +27,19 @@ class MasterJobRepository:
         )
         self.session.add(job)
         await self.session.flush()
+
+        # Seed the 16 pipeline stages from the canonical definitions
+        from src.domain.enums import STAGE_DEFINITIONS
+        for defn in STAGE_DEFINITIONS:
+            self.session.add(VerificationStageModel(
+                id=uuid4().hex,
+                master_job_id=job.id,
+                stage_type=defn["type"].value,
+                seq=defn["seq"],
+                status="pending",
+                applicability=defn["applicability"].value,
+                criticality=defn["criticality"].value,
+            ))
         return job
 
     async def get_by_id(self, job_id: str) -> MasterVerificationJobModel | None:

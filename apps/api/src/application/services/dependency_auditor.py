@@ -79,7 +79,7 @@ async def _audit_python(
     result = AuditResult(ecosystem="python")
     # pip-audit exits non-zero (1) when it finds vulnerabilities, so a non-zero
     # exit is NOT "skipped" — the JSON report is still on stdout.
-    cmd = "python3 -m pip install pip-audit --break-system-packages >/dev/null 2>&1 && python3 -m pip_audit --format json 2>/dev/null"
+    cmd = "python3 -m pip install pip-audit --break-system-packages >/dev/null 2>&1 && python3 -m pip_audit --path . --format json 2>/dev/null"
 
     if container_id and runner:
         exit_code, stdout, stderr = runner.exec_run(container_id, f"cd /workspace/source && {cmd}", timeout=240)

@@ -74,6 +74,16 @@ class DockerSDKRunner:
             }
 
         container = self.client.containers.run(**kwargs)
+
+        # Isolate by default: disconnect from bridge immediately. Network is
+        # re-enabled on demand via connect_network() for dependency installation.
+        # (Docker refuses to connect a container that was started in "none" mode,
+        # so we provision on bridge and disconnect to reach the isolated state.)
+        try:
+            self.client.networks.get("bridge").disconnect(container)
+        except Exception:
+            pass
+
         return {
             "id": container.id,
             "name": container.name,

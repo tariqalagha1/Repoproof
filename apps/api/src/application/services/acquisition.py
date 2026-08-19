@@ -40,17 +40,20 @@ async def safe_clone(url: str, target_dir: Path | None = None, branch: str = "ma
 
 
 async def acquire_repository(url: str, target_dir: Path | None = None, branch: str = "main") -> dict:
-    """Acquire a repository and return metadata."""
+    """Acquire a repository via safe zip download (no git clone, no hooks, no creds).
+
+    The API image ships no git binary, so the previous git-based path returned an
+    empty /tmp. This uses the same GitHub /archive zip fetch as run_full_pipeline.py.
+    """
+    from src.application.services.safe_downloader import fetch_repo_zip
     try:
-        work_dir, commit_hash = await safe_clone(url, target_dir, branch)
+        dl = await fetch_repo_zip(url, branch)
         return {
             "success": True,
-            "path": str(work_dir),
-            "commit_hash": commit_hash,
+            "path": str(dl.extract_path),
+            "commit_hash": dl.commit_sha,
             "branch": branch,
+            "file_count": dl.file_count,
         }
     except Exception as e:
-        return {
-            "success": False,
-            "error": str(e),
-        }
+        return {"success": False, "error": str(e)}
