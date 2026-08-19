@@ -333,18 +333,25 @@ def create_app() -> FastAPI:
         # Aggregate stage results
         completed = [s for s in stages if s.status == "completed"]
         failed = [s for s in stages if s.status == "failed"]
-        secrets = 0
-        tests_passed = 0
-        tests_failed = 0
-        build_ok = False
-        for s in stages:
-            if s.stage_type == "04_environment_provisioning" and s.status == "completed":
-                build_ok = True
-            if s.stage_type == "10_live_workflow_testing" and s.status == "completed":
-                tests_passed = 1  # simplified
 
-        # Count secrets from evidence if available (default 0 for API calls)
+        # Real evidence: secrets count from the discovery manifest (persisted on /discover)
         secrets = 0
+        secrets_source = "not_persisted"
+        r = await db.execute(
+            select(_dm.ArchitectureManifestModel)
+            .where(_dm.ArchitectureManifestModel.master_job_id == job_id)
+            .order_by(_dm.ArchitectureManifestModel.created_at.desc())
+            .limit(1)
+        )
+        manifest = r.scalars().first()
+        if manifest is not None:
+            secrets = manifest.secrets_found
+            secrets_source = "architecture_manifests.secrets_found"
+
+        # Build/tests derived from stage completion (numeric counts not yet persisted)
+        build_ok = any(s.stage_type == "04_environment_provisioning" and s.status == "completed" for s in stages)
+        tests_passed = 1 if any(s.stage_type == "10_live_workflow_testing" and s.status == "completed" for s in stages) else 0
+        tests_failed = 0
 
         report = compute_compatibility(
             secrets_count=secrets,
@@ -375,6 +382,10 @@ def create_app() -> FastAPI:
             "recommendations": report.recommendations,
             "stages_completed": len(completed),
             "stages_total": len(stages),
+            "evidence": {
+                "secrets_source": secrets_source,
+                "unavailable": ["vulnerabilities", "version_mismatches", "test_counts"],
+            },
         }
 
     @app.post("/api/v1/environments/provision")
@@ -393,11 +404,12 @@ def create_app() -> FastAPI:
             "--security-opt", "no-new-privileges:true",
             "--cap-drop", "ALL",
             "--read-only",
-            "--tmpfs", "/tmp:exec,size=128M",
-            "--tmpfs", "/workspace:exec,size=1G",
+            "--tmpfs", "/tmp:exec,size=128M,mode=1777",
+            "--tmpfs", "/workspace:exec,size=1G,mode=1777",
             "--memory", "512m", "--memory-swap", "512m",
             "--cpu-shares", "512", "--pids-limit", "64",
-            "--network", "none", "--init",
+            "--network", "bridge", "--init",
+            "-e", "HOME=/workspace",
             "repoproof-runner:latest", "sleep", "3600",
         ], capture_output=True, text=True, timeout=15)
 

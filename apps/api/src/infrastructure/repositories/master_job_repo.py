@@ -115,6 +115,7 @@ class MasterJobRepository:
             detected_languages=str(manifest_data.get("detected_languages", [])),
             dependency_files=str(manifest_data.get("dependency_files", [])),
             file_count=manifest_data.get("file_count", 0),
+            secrets_found=manifest_data.get("secrets_found", 0),
         )
         self.session.add(manifest)
         await self.session.flush()

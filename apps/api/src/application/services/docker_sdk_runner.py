@@ -43,7 +43,7 @@ class DockerSDKRunner:
         cpu_shares: int = 512,
         source_mount: str | None = None,
         source_mount_mode: str = "ro",
-        network_mode: str = "none",
+        network_mode: str = "bridge",
     ) -> dict[str, Any]:
         """Create and start a hardened verification container."""
         kwargs: dict[str, Any] = {
@@ -61,9 +61,10 @@ class DockerSDKRunner:
             "pids_limit": 64,
             "init": True,
             "tmpfs": {
-                "/tmp": "exec,size=128m",
-                "/workspace": "exec,size=1g",
+                "/tmp": "exec,size=128m,mode=1777",
+                "/workspace": "exec,size=1g,mode=1777",
             },
+            "environment": {"HOME": "/workspace"},
         }
 
         # Source mount

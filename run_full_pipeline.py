@@ -1,7 +1,7 @@
 """Full RepoProof AI pipeline — Phase 1-5 complete.
 Uses: zip download, Docker SDK, dependency audit, version check, compatibility score.
 """
-import asyncio, os, sys, time
+import asyncio, os, subprocess, sys, time
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -115,11 +115,12 @@ async def main():
                 "--security-opt", "no-new-privileges:true",
                 "--cap-drop", "ALL", "--read-only",
                 "-v", f"{source_path}:/source:ro",
-                "--tmpfs", "/tmp:exec,size=128m",
-                "--tmpfs", "/workspace:exec,size=1g",
+                "--tmpfs", "/tmp:exec,size=128m,mode=1777",
+                "--tmpfs", "/workspace:exec,size=1g,mode=1777",
                 "--memory", "512m", "--memory-swap", "512m",
                 "--cpu-shares", "512", "--pids-limit", "64",
-                "--network", "none", "--init",
+                "--network", "bridge", "--init",
+                "-e", "HOME=/workspace",
                 "repoproof-runner:latest", "sleep", "3600",
             ], capture_output=True, text=True, timeout=15)
             container = {"id": result.stdout.strip()}
@@ -175,13 +176,6 @@ async def main():
         print(" PHASE 4: DYNAMIC EVALUATION")
         print("═" * 60)
 
-        # Enable network for dep install
-        if sdk:
-            sdk.connect_network(cid)
-        else:
-            subprocess.run(["docker", "network", "connect", "bridge", cid], capture_output=True)
-
-        # Copy source to writable workspace
         def exec_cmd(cmd, timeout=120):
             if sdk:
                 return sdk.exec_run(cid, cmd, timeout=timeout)
@@ -189,26 +183,25 @@ async def main():
                 r = subprocess.run(["docker", "exec", cid, "sh", "-c", cmd], capture_output=True, text=True, timeout=timeout)
                 return r.returncode, r.stdout, r.stderr
 
-        print("\nVerifying source mount...")
-        ec, out, err = exec_cmd("ls /source/ | head -5", 10)
-        print(f"  /source contents: {out.strip()[:100]}")
-        source_ok = ec == 0 and out.strip()
-        
-        # Use /source directly if mounted, otherwise copy from host
-        if source_ok:
-            workdir = "/source"
-            print("  ✓ Using /source directly as workdir")
+        # Enable network for dependency installation
+        print("\nEnabling network for dependency installation...")
+        if sdk:
+            sdk.connect_network(cid)
         else:
-            print("  Copying source to /workspace...")
-            exec_cmd("cp -r /source/. /workspace/source/ 2>/dev/null || mkdir -p /workspace/source", 10)
-            ec2, out2, _ = exec_cmd("ls /workspace/source/ | head -5", 10)
-            if ec2 == 0 and out2.strip():
-                workdir = "/workspace/source"
-                print("  ✓ Copied to /workspace/source")
-            else:
-                workdir = "/workspace"
-                print("  ⚠ Source not available, using empty workspace")
-                source_ok = False
+            subprocess.run(["docker", "network", "connect", "bridge", cid], capture_output=True)
+
+        # Copy source into a writable workspace (the /source mount is read-only)
+        print("\nCopying source to writable /workspace/source...")
+        exec_cmd("mkdir -p /workspace/source", 10)
+        ec, out, err = exec_cmd("cp -r /source/. /workspace/source/ 2>/dev/null && ls /workspace/source/ | head -5", 30)
+        workdir = "/workspace/source"
+        source_ok = ec == 0 and bool(out.strip())
+        print(f"  {'✓' if source_ok else '✗'} /workspace/source: {out.strip()[:80]}")
+
+        # Install the target project so its tests can import it
+        print("\nInstalling target project (pip install -e)...")
+        ec, out, err = exec_cmd(f"cd {workdir} && python3 -m pip install -e . --break-system-packages 2>&1 | tail -3", 240)
+        print(f"  Exit: {ec} | {out.strip()[:120]}")
 
         # Syntax validation
         print("\nSyntax validation (python -m compileall)...")
@@ -216,9 +209,9 @@ async def main():
         syntax_ok = ec == 0 and "Sorry" not in out
         print(f"  {'✓' if syntax_ok else '✗'} Exit: {ec}, Output: {out.strip()[:100]}")
 
-        # Dependency audit
+        # Dependency audit (runs inside the sandbox via the SDK runner)
         print("\nDependency audit...")
-        audit_results = await audit_dependencies(Path(source_path), cid, None)
+        audit_results = await audit_dependencies(Path(source_path), cid, sdk)
         vulns = 0
         critical = 0
         for ar in audit_results:
@@ -226,26 +219,25 @@ async def main():
             critical += ar.critical
             print(f"  {ar.ecosystem}: {ar.total_packages} pkgs, {ar.vulnerable} vulns ({ar.critical} critical)")
 
-        # Version check
+        # Version check (runs inside the sandbox)
         print("\nVersion check...")
-        ver_results = await check_versions(Path(source_path), cid, None)
+        ver_results = await check_versions(Path(source_path), cid, sdk)
         mismatches = sum(1 for v in ver_results if not v.compatible)
         for v in ver_results:
             status = "✓" if v.compatible else "✗"
             print(f"  {status} {v.ecosystem}: needs {v.repo_requires[:60]}, has {v.runner_provides[:30]}")
 
-        # Mock test — inject dummy data
-        print("\nMock test — compile check + import check...")
-        ec, out, err = exec_cmd(
-            f"cd {workdir} && python3 -c 'import sys; sys.path.insert(0,\".\"); "
-            "print(\"Import test OK\")' 2>&1", 30)
-        import_ok = ec == 0
-        print(f"  {'✓' if import_ok else '✗'} Import: {out.strip()[:100]}")
+        # Isolate before executing the target's tests
+        print("\nIsolating sandbox (disconnect network) before test execution...")
+        if sdk:
+            sdk.disconnect_network(cid)
+        else:
+            subprocess.run(["docker", "network", "disconnect", "bridge", cid], capture_output=True)
 
         # Test collection
         print("\nTest collection (pytest --collect-only)...")
         ec, out, err = exec_cmd(
-            f"cd {workdir} && python3 -m pytest tests/ --collect-only -q 2>&1 | tail -5", 60)
+            f"cd {workdir} && python3 -m pytest tests/ --collect-only -q 2>&1 | tail -5", 90)
         tests_collected = 0
         try:
             tests_collected = int(out.strip().split()[-1]) if out.strip().split()[-1].isdigit() else 0
@@ -255,7 +247,7 @@ async def main():
         # Actual test run
         print("\nRunning test suite...")
         ec, out, err = exec_cmd(
-            f"cd {workdir} && python3 -m pytest tests/ -x --tb=short 2>&1 | tail -8", 90)
+            f"cd {workdir} && python3 -m pytest tests/ -q --tb=short 2>&1 | tail -10", 300)
         tests_passed = 0
         tests_failed = 0
         try:

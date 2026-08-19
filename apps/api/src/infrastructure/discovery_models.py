@@ -23,6 +23,7 @@ class ArchitectureManifestModel(Base):
     detected_languages = Column(Text, default="[]")
     dependency_files = Column(Text, default="[]")
     file_count = Column(Integer, default=0)
+    secrets_found = Column(Integer, default=0)
     directory_structure = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 

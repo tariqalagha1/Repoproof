@@ -77,41 +77,41 @@ async def _audit_python(
     root: Path, container_id: str | None, runner,
 ) -> AuditResult:
     result = AuditResult(ecosystem="python")
-    cmd = "pip install pip-audit 2>/dev/null && pip-audit --format json 2>/dev/null || echo 'AUDIT_SKIPPED'"
+    # pip-audit exits non-zero (1) when it finds vulnerabilities, so a non-zero
+    # exit is NOT "skipped" — the JSON report is still on stdout.
+    cmd = "python3 -m pip install pip-audit --break-system-packages >/dev/null 2>&1 && python3 -m pip_audit --format json 2>/dev/null"
 
     if container_id and runner:
-        exit_code, stdout, stderr = runner.exec_run(container_id, f"cd /workspace/source && {cmd}", timeout=120)
+        exit_code, stdout, stderr = runner.exec_run(container_id, f"cd /workspace/source && {cmd}", timeout=240)
     else:
         # Local fallback
         import subprocess
-        r = subprocess.run(["sh", "-c", f"cd {root} && {cmd}"], capture_output=True, text=True, timeout=120)
+        r = subprocess.run(["sh", "-c", f"cd {root} && {cmd}"], capture_output=True, text=True, timeout=240)
         exit_code = r.returncode
         stdout = r.stdout
 
     result.raw_output = stdout
 
-    if "AUDIT_SKIPPED" in stdout or not stdout.strip():
+    if not stdout.strip():
         result.success = False
         return result
 
-    # Parse pip-audit JSON output
+    # Parse pip-audit JSON. Vulnerabilities are nested under each dependency's
+    # "vulns" array; pip-audit does not expose a per-vuln severity field.
     try:
         import json
         data = json.loads(stdout)
-        result.total_packages = len(data.get("dependencies", []))
-        for vuln in data.get("vulnerabilities", []):
-            result.vulnerable += 1
-            sev = vuln.get("severity", "").lower()
-            if sev == "critical": result.critical += 1
-            elif sev == "high": result.high += 1
-            elif sev == "medium": result.medium += 1
-            else: result.low += 1
-            result.findings.append({
-                "package": vuln.get("name", ""),
-                "version": vuln.get("version", ""),
-                "severity": sev,
-                "advisory": vuln.get("advisory", ""),
-            })
+        deps = data.get("dependencies", [])
+        result.total_packages = len(deps)
+        for dep in deps:
+            for vuln in dep.get("vulns", []):
+                result.vulnerable += 1
+                result.findings.append({
+                    "package": dep.get("name", ""),
+                    "version": dep.get("version", ""),
+                    "severity": "unknown",
+                    "advisory": ", ".join(vuln.get("aliases", []) or [vuln.get("id", "")]),
+                })
         result.success = True
     except Exception:
         result.success = False
