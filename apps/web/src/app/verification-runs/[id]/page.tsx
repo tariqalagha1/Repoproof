@@ -55,7 +55,7 @@ export default function VerificationRunDetailPage() {
     const nextState = ADVANCE_FLOW[currentIdx + 1];
     setAdvancing(true);
     try {
-      const updated = await api.runs.transition(run.id, nextState, "Advancing through foundation states");
+      const updated = await api.runs.transition(run.id, run.lifecycle_state, nextState);
       setRun(updated);
       const t = await api.runs.transitions(id);
       setTransitions(t);

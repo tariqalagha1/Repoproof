@@ -117,7 +117,7 @@ def upgrade() -> None:
         sa.Column("id", sa.String(32), primary_key=True),
         sa.Column("environment_id", sa.String(32), sa.ForeignKey("runner_environments.id"), nullable=False),
         sa.Column("test_name", sa.String(100), nullable=False),
-        sa.Column("passed", sa.Boolean, nullable=False, server_default=sa.text("0")),
+        sa.Column("passed", sa.Boolean, nullable=False, server_default=sa.text("false")),
         sa.Column("detail", sa.Text, nullable=False, server_default=""),
         sa.Column("evidence", sa.JSON, nullable=False, server_default="{}"),
         sa.Column("created_at", sa.DateTime, nullable=False, server_default=sa.text("CURRENT_TIMESTAMP")),

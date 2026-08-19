@@ -146,3 +146,50 @@ export function getGates() {
 export function getCompatibility(jobId: string) {
   return fetchAPI<any>(`/compatibility/${jobId}`);
 }
+
+// ── Stage detail (frontend contract) ─────────────────
+export interface StageCheck {
+  id: string;
+  name: string;
+  status: string;
+  description: string;
+  blocked_reason?: string;
+  evidence_classification: string;
+}
+
+export interface StageDetail {
+  id: string;
+  master_job_id: string;
+  stage_type: string;
+  status: string;
+  criticality: string;
+  applicability: string;
+  attempt_count: number;
+  blocked_reason?: string;
+  checks: StageCheck[];
+  started_at: string | null;
+  completed_at: string | null;
+}
+
+// ── Legacy `api` client object ───────────────────────
+// Used by stages/[id] and verification-runs/[id]. Backed by real endpoints.
+export const api = {
+  stages: {
+    get: (id: string) => fetchAPI<StageDetail>(`/stages/${id}`),
+  },
+  runs: {
+    get: (id: string) => fetchAPI<any>(`/runs/${id}`),
+    transitions: (id: string) => fetchAPI<any[]>(`/runs/${id}/transitions`),
+    checkpoints: (id: string) => fetchAPI<any[]>(`/runs/${id}/checkpoints`),
+    transition: (id: string, from: string, to: string) =>
+      fetchAPI<any>(`/runs/${id}/transitions`, {
+        method: 'POST',
+        body: JSON.stringify({ from, to }),
+      }),
+    createCheckpoint: (id: string, name: string, snapshot: unknown) =>
+      fetchAPI<any>(`/runs/${id}/checkpoints`, {
+        method: 'POST',
+        body: JSON.stringify({ name, data: JSON.stringify(snapshot) }),
+      }),
+  },
+};

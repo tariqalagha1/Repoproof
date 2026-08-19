@@ -22,7 +22,7 @@ from sqlalchemy.dialects import postgresql
 
 
 revision: str = "004"
-down_revision: Union[str, None] = "003"
+down_revision: Union[str, None] = "003_discovery"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
@@ -31,11 +31,11 @@ def upgrade() -> None:
     # ── verification_plans ──────────────────────────────
     op.create_table(
         "verification_plans",
-        sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True),
-        sa.Column("organization_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("organizations.id"), nullable=True),
-        sa.Column("project_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("projects.id"), nullable=True),
-        sa.Column("master_job_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("master_verification_jobs.id"), nullable=True),
-        sa.Column("repository_connection_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("repository_connections.id"), nullable=True),
+        sa.Column("id", sa.String(32), primary_key=True),
+        sa.Column("organization_id", sa.String(32), sa.ForeignKey("organizations.id"), nullable=True),
+        sa.Column("project_id", sa.String(32), sa.ForeignKey("projects.id"), nullable=True),
+        sa.Column("master_job_id", sa.String(32), sa.ForeignKey("master_verification_jobs.id"), nullable=True),
+        sa.Column("repository_connection_id", sa.String(32), sa.ForeignKey("repository_connections.id"), nullable=True),
         sa.Column("repository_url", sa.Text(), nullable=False, server_default=""),
         sa.Column("locked_commit_sha", sa.String(64), nullable=False, server_default=""),
         sa.Column("manifest_id", sa.String(64), nullable=False, server_default=""),
@@ -61,8 +61,8 @@ def upgrade() -> None:
     # ── plan_versions ───────────────────────────────────
     op.create_table(
         "plan_versions",
-        sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True),
-        sa.Column("plan_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("verification_plans.id"), nullable=False),
+        sa.Column("id", sa.String(32), primary_key=True),
+        sa.Column("plan_id", sa.String(32), sa.ForeignKey("verification_plans.id"), nullable=False),
         sa.Column("version", sa.Integer(), nullable=False),
         sa.Column("plan_data", postgresql.JSONB(), nullable=False, server_default="{}"),
         sa.Column("plan_digest", sa.String(64), nullable=False, server_default=""),
@@ -73,8 +73,8 @@ def upgrade() -> None:
     # ── planned_stages ──────────────────────────────────
     op.create_table(
         "planned_stages",
-        sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True),
-        sa.Column("plan_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("verification_plans.id"), nullable=False),
+        sa.Column("id", sa.String(32), primary_key=True),
+        sa.Column("plan_id", sa.String(32), sa.ForeignKey("verification_plans.id"), nullable=False),
         sa.Column("stage_type", sa.String(50), nullable=False, server_default=""),
         sa.Column("applicability", sa.String(50), nullable=False, server_default="required"),
         sa.Column("criticality", sa.String(50), nullable=False, server_default="required"),
@@ -87,9 +87,9 @@ def upgrade() -> None:
     # ── planned_checks ──────────────────────────────────
     op.create_table(
         "planned_checks",
-        sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True),
-        sa.Column("plan_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("verification_plans.id"), nullable=False),
-        sa.Column("stage_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("planned_stages.id"), nullable=True),
+        sa.Column("id", sa.String(32), primary_key=True),
+        sa.Column("plan_id", sa.String(32), sa.ForeignKey("verification_plans.id"), nullable=False),
+        sa.Column("stage_id", sa.String(32), sa.ForeignKey("planned_stages.id"), nullable=True),
         sa.Column("stage_type", sa.String(50), nullable=False, server_default=""),
         sa.Column("check_key", sa.String(100), nullable=False, server_default=""),
         sa.Column("check_version", sa.Integer(), nullable=False, server_default="1"),
@@ -102,8 +102,8 @@ def upgrade() -> None:
     # ── command_specifications ──────────────────────────
     op.create_table(
         "command_specifications",
-        sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True),
-        sa.Column("plan_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("verification_plans.id"), nullable=False),
+        sa.Column("id", sa.String(32), primary_key=True),
+        sa.Column("plan_id", sa.String(32), sa.ForeignKey("verification_plans.id"), nullable=False),
         sa.Column("stage_type", sa.String(50), nullable=False, server_default=""),
         sa.Column("check_key", sa.String(100), nullable=False, server_default=""),
         sa.Column("ecosystem", sa.String(50), nullable=False, server_default=""),
@@ -139,8 +139,8 @@ def upgrade() -> None:
     # ── planned_services ────────────────────────────────
     op.create_table(
         "planned_services",
-        sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True),
-        sa.Column("plan_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("verification_plans.id"), nullable=False),
+        sa.Column("id", sa.String(32), primary_key=True),
+        sa.Column("plan_id", sa.String(32), sa.ForeignKey("verification_plans.id"), nullable=False),
         sa.Column("service_identifier", sa.String(255), nullable=False, server_default=""),
         sa.Column("service_type", sa.String(50), nullable=False, server_default="unknown"),
         sa.Column("service_data", postgresql.JSONB(), nullable=False, server_default="{}"),
@@ -151,8 +151,8 @@ def upgrade() -> None:
     # ── planned_dependencies ────────────────────────────
     op.create_table(
         "planned_dependencies",
-        sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True),
-        sa.Column("plan_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("verification_plans.id"), nullable=False),
+        sa.Column("id", sa.String(32), primary_key=True),
+        sa.Column("plan_id", sa.String(32), sa.ForeignKey("verification_plans.id"), nullable=False),
         sa.Column("ecosystem", sa.String(50), nullable=False, server_default=""),
         sa.Column("manifest", sa.String(255), nullable=False, server_default=""),
         sa.Column("lock_file", sa.String(255), nullable=False, server_default=""),
@@ -165,8 +165,8 @@ def upgrade() -> None:
     # ── plan_conflicts ──────────────────────────────────
     op.create_table(
         "plan_conflicts",
-        sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True),
-        sa.Column("plan_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("verification_plans.id"), nullable=False),
+        sa.Column("id", sa.String(32), primary_key=True),
+        sa.Column("plan_id", sa.String(32), sa.ForeignKey("verification_plans.id"), nullable=False),
         sa.Column("conflict_type", sa.String(50), nullable=False, server_default="other"),
         sa.Column("description", sa.Text(), nullable=False, server_default=""),
         sa.Column("evidence", postgresql.JSONB(), nullable=False, server_default="[]"),
@@ -181,8 +181,8 @@ def upgrade() -> None:
     # ── decision_requests ───────────────────────────────
     op.create_table(
         "decision_requests",
-        sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True),
-        sa.Column("plan_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("verification_plans.id"), nullable=False),
+        sa.Column("id", sa.String(32), primary_key=True),
+        sa.Column("plan_id", sa.String(32), sa.ForeignKey("verification_plans.id"), nullable=False),
         sa.Column("question", sa.Text(), nullable=False, server_default=""),
         sa.Column("reason", sa.Text(), nullable=False, server_default=""),
         sa.Column("available_evidence", postgresql.JSONB(), nullable=False, server_default="[]"),
@@ -200,8 +200,8 @@ def upgrade() -> None:
     # ── llm_planning_attempts ───────────────────────────
     op.create_table(
         "llm_planning_attempts",
-        sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True),
-        sa.Column("plan_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("verification_plans.id"), nullable=False),
+        sa.Column("id", sa.String(32), primary_key=True),
+        sa.Column("plan_id", sa.String(32), sa.ForeignKey("verification_plans.id"), nullable=False),
         sa.Column("provider", sa.String(50), nullable=False, server_default=""),
         sa.Column("model", sa.String(100), nullable=False, server_default=""),
         sa.Column("request_id", sa.Text(), nullable=True),
@@ -220,8 +220,8 @@ def upgrade() -> None:
     # ── grounding_results ───────────────────────────────
     op.create_table(
         "grounding_results",
-        sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True),
-        sa.Column("plan_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("verification_plans.id"), nullable=False),
+        sa.Column("id", sa.String(32), primary_key=True),
+        sa.Column("plan_id", sa.String(32), sa.ForeignKey("verification_plans.id"), nullable=False),
         sa.Column("item_type", sa.String(50), nullable=False, server_default=""),
         sa.Column("item_id", sa.String(64), nullable=True),
         sa.Column("decision", sa.String(50), nullable=False, server_default="requires_confirmation"),
@@ -237,8 +237,8 @@ def upgrade() -> None:
     # ── plan_artifacts ──────────────────────────────────
     op.create_table(
         "plan_artifacts",
-        sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True),
-        sa.Column("plan_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("verification_plans.id"), nullable=False),
+        sa.Column("id", sa.String(32), primary_key=True),
+        sa.Column("plan_id", sa.String(32), sa.ForeignKey("verification_plans.id"), nullable=False),
         sa.Column("artifact_type", sa.String(50), nullable=False, server_default=""),
         sa.Column("artifact_data", postgresql.JSONB(), nullable=False, server_default="{}"),
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now()),

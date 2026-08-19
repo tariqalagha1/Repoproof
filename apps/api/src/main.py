@@ -24,7 +24,7 @@ from src.infrastructure.llm import create_llm_provider
 from src.infrastructure.repositories.project_repo import ProjectRepository
 from src.infrastructure.repositories.run_repo import RunRepository
 from src.infrastructure.repositories.master_job_repo import MasterJobRepository
-from src.infrastructure.models import Base, RepositoryConnectionModel
+from src.infrastructure.models import Base, OrganizationModel, RepositoryConnectionModel
 from src.infrastructure import discovery_models as _dm
 from src.infrastructure import plan_models as _pm
 from src.infrastructure import policy_models as _polm
@@ -70,8 +70,15 @@ def create_app() -> FastAPI:
     # ═══════════ Projects ═══════════
     @app.post("/api/v1/projects")
     async def create_project(body: dict[str, Any], db: AsyncSession = Depends(get_db)):
+        # Get-or-create a default organization (ProjectModel.org_id is a non-null FK).
+        r = await db.execute(select(OrganizationModel).limit(1))
+        org = r.scalars().first()
+        if not org:
+            org = OrganizationModel(id=_uid(), name="default")
+            db.add(org)
+            await db.flush()
         repo = ProjectRepository(db)
-        project = await repo.create(org_id=_uid(), name=body.get("name", "Unnamed"), description=body.get("description", ""))
+        project = await repo.create(org_id=org.id, name=body.get("name", "Unnamed"), description=body.get("description", ""))
         await db.commit()
         return _p(project)
 

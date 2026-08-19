@@ -27,6 +27,6 @@ RUN pip install --no-cache-dir -e ".[dev]" || pip install --no-cache-dir \
 # Copy source
 COPY . .
 
-# Run alembic migration then start the server
-CMD sh -c "cd /app && python -m alembic -c alembic.ini upgrade head && \
-    python -m uvicorn src.main:app --host 0.0.0.0 --port 8000"
+# Schema is built from the ORM models at app startup (Base.metadata.create_all).
+# Alembic migrations are stale/divergent from the models and are regenerated in a later wave.
+CMD sh -c "cd /app && python -m uvicorn src.main:app --host 0.0.0.0 --port 8000"

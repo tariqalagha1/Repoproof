@@ -19,7 +19,7 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     # ── Extend repository_connections ──────────────────
-    op.add_column("repository_connections", sa.Column("organization_id", postgresql.UUID(as_uuid=True), nullable=True))
+    op.add_column("repository_connections", sa.Column("organization_id", sa.String(32), nullable=True))
     op.add_column("repository_connections", sa.Column("repository_url", sa.Text, nullable=False, server_default=""))
     op.add_column("repository_connections", sa.Column("normalized_url", sa.Text, nullable=False, server_default=""))
     op.add_column("repository_connections", sa.Column("visibility", sa.String(20), nullable=False, server_default="unknown"))
@@ -28,7 +28,7 @@ def upgrade() -> None:
     op.add_column("repository_connections", sa.Column("resolved_commit_sha", sa.String(64), nullable=False, server_default=""))
     op.add_column("repository_connections", sa.Column("connection_status", sa.String(50), nullable=False, server_default="submitted"))
     op.add_column("repository_connections", sa.Column("authorization_status", sa.String(50), nullable=False, server_default="none"))
-    op.add_column("repository_connections", sa.Column("created_by", postgresql.UUID(as_uuid=True), nullable=True))
+    op.add_column("repository_connections", sa.Column("created_by", sa.String(32), nullable=True))
     op.create_index("ix_repo_connections_org", "repository_connections", ["organization_id"])
     op.create_index("ix_repo_connections_project", "repository_connections", ["project_id"])
     # Migrate existing url→repository_url data
@@ -37,13 +37,13 @@ def upgrade() -> None:
     # ── master_verification_jobs ─────────────────────────
     op.create_table(
         "master_verification_jobs",
-        sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True),
-        sa.Column("organization_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("organizations.id"), nullable=True),
-        sa.Column("project_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("projects.id"), nullable=True),
-        sa.Column("repository_connection_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("repository_connections.id"), nullable=True),
+        sa.Column("id", sa.String(32), primary_key=True),
+        sa.Column("organization_id", sa.String(32), sa.ForeignKey("organizations.id"), nullable=True),
+        sa.Column("project_id", sa.String(32), sa.ForeignKey("projects.id"), nullable=True),
+        sa.Column("repository_connection_id", sa.String(32), sa.ForeignKey("repository_connections.id"), nullable=True),
         sa.Column("status", sa.String(50), nullable=False, server_default="created"),
-        sa.Column("current_stage_id", postgresql.UUID(as_uuid=True), nullable=True),
-        sa.Column("requested_by", postgresql.UUID(as_uuid=True), nullable=True),
+        sa.Column("current_stage_id", sa.String(32), nullable=True),
+        sa.Column("requested_by", sa.String(32), nullable=True),
         sa.Column("initial_authorization_scope", sa.JSON, nullable=False, server_default="{}"),
         sa.Column("plan_version", sa.Integer, nullable=False, server_default="1"),
         sa.Column("orchestration_version", sa.Integer, nullable=False, server_default="1"),
@@ -69,8 +69,8 @@ def upgrade() -> None:
     # ── verification_stages ──────────────────────────────
     op.create_table(
         "verification_stages",
-        sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True),
-        sa.Column("master_job_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("master_verification_jobs.id"), nullable=True),
+        sa.Column("id", sa.String(32), primary_key=True),
+        sa.Column("master_job_id", sa.String(32), sa.ForeignKey("master_verification_jobs.id"), nullable=True),
         sa.Column("stage_type", sa.String(50), nullable=False),
         sa.Column("sequence_number", sa.Integer, nullable=False),
         sa.Column("status", sa.String(50), nullable=False, server_default="pending"),
@@ -97,10 +97,10 @@ def upgrade() -> None:
     # ── stage_prerequisites ───────────────────────────────
     op.create_table(
         "stage_prerequisites",
-        sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True),
-        sa.Column("stage_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("verification_stages.id"), nullable=True),
+        sa.Column("id", sa.String(32), primary_key=True),
+        sa.Column("stage_id", sa.String(32), sa.ForeignKey("verification_stages.id"), nullable=True),
         sa.Column("prerequisite_stage_type", sa.String(50), nullable=False),
-        sa.Column("master_job_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("master_verification_jobs.id"), nullable=True),
+        sa.Column("master_job_id", sa.String(32), sa.ForeignKey("master_verification_jobs.id"), nullable=True),
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
     )
     op.create_index("ix_prereq_stage", "stage_prerequisites", ["stage_id"])
@@ -108,8 +108,8 @@ def upgrade() -> None:
     # ── verification_checks ───────────────────────────────
     op.create_table(
         "verification_checks",
-        sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True),
-        sa.Column("stage_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("verification_stages.id"), nullable=True),
+        sa.Column("id", sa.String(32), primary_key=True),
+        sa.Column("stage_id", sa.String(32), sa.ForeignKey("verification_stages.id"), nullable=True),
         sa.Column("check_key", sa.String(100), nullable=False, server_default=""),
         sa.Column("check_version", sa.Integer, nullable=False, server_default="1"),
         sa.Column("category", sa.String(100), nullable=False, server_default=""),
@@ -136,17 +136,17 @@ def upgrade() -> None:
     # ── approval_requests ─────────────────────────────────
     op.create_table(
         "approval_requests",
-        sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True),
-        sa.Column("organization_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("organizations.id"), nullable=True),
-        sa.Column("master_job_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("master_verification_jobs.id"), nullable=True),
-        sa.Column("stage_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("verification_stages.id"), nullable=True),
+        sa.Column("id", sa.String(32), primary_key=True),
+        sa.Column("organization_id", sa.String(32), sa.ForeignKey("organizations.id"), nullable=True),
+        sa.Column("master_job_id", sa.String(32), sa.ForeignKey("master_verification_jobs.id"), nullable=True),
+        sa.Column("stage_id", sa.String(32), sa.ForeignKey("verification_stages.id"), nullable=True),
         sa.Column("action_type", sa.String(100), nullable=False),
         sa.Column("requested_scope", sa.JSON, nullable=False, server_default="{}"),
         sa.Column("reason", sa.Text, nullable=False, server_default=""),
         sa.Column("risk_level", sa.String(20), nullable=False, server_default="low"),
         sa.Column("status", sa.String(20), nullable=False, server_default="pending"),
-        sa.Column("requested_by", postgresql.UUID(as_uuid=True), nullable=True),
-        sa.Column("decided_by", postgresql.UUID(as_uuid=True), nullable=True),
+        sa.Column("requested_by", sa.String(32), nullable=True),
+        sa.Column("decided_by", sa.String(32), nullable=True),
         sa.Column("requested_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
         sa.Column("decided_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("expires_at", sa.DateTime(timezone=True), nullable=True),
@@ -155,22 +155,22 @@ def upgrade() -> None:
     op.create_index("ix_approval_reqs_job", "approval_requests", ["master_job_id"])
 
     # ── Extend evidence_items ─────────────────────────────
-    op.add_column("evidence_items", sa.Column("master_job_id", postgresql.UUID(as_uuid=True), nullable=True))
-    op.add_column("evidence_items", sa.Column("stage_id", postgresql.UUID(as_uuid=True), nullable=True))
-    op.add_column("evidence_items", sa.Column("check_id", postgresql.UUID(as_uuid=True), nullable=True))
+    op.add_column("evidence_items", sa.Column("master_job_id", sa.String(32), nullable=True))
+    op.add_column("evidence_items", sa.Column("stage_id", sa.String(32), nullable=True))
+    op.add_column("evidence_items", sa.Column("check_id", sa.String(32), nullable=True))
     op.add_column("evidence_items", sa.Column("evidence_classification", sa.String(50), nullable=False, server_default="not_proven"))
 
     # ── Extend findings ───────────────────────────────────
-    op.add_column("findings", sa.Column("master_job_id", postgresql.UUID(as_uuid=True), nullable=True))
-    op.add_column("findings", sa.Column("stage_id", postgresql.UUID(as_uuid=True), nullable=True))
-    op.add_column("findings", sa.Column("check_id", postgresql.UUID(as_uuid=True), nullable=True))
+    op.add_column("findings", sa.Column("master_job_id", sa.String(32), nullable=True))
+    op.add_column("findings", sa.Column("stage_id", sa.String(32), nullable=True))
+    op.add_column("findings", sa.Column("check_id", sa.String(32), nullable=True))
 
     # ── Extend recommendations ────────────────────────────
-    op.add_column("recommendations", sa.Column("master_job_id", postgresql.UUID(as_uuid=True), nullable=True))
-    op.add_column("recommendations", sa.Column("stage_id", postgresql.UUID(as_uuid=True), nullable=True))
+    op.add_column("recommendations", sa.Column("master_job_id", sa.String(32), nullable=True))
+    op.add_column("recommendations", sa.Column("stage_id", sa.String(32), nullable=True))
 
     # ── Link verification_runs to master_jobs ─────────────
-    op.add_column("verification_runs", sa.Column("master_job_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("master_verification_jobs.id"), nullable=True))
+    op.add_column("verification_runs", sa.Column("master_job_id", sa.String(32), sa.ForeignKey("master_verification_jobs.id"), nullable=True))
 
 
 def downgrade() -> None:

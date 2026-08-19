@@ -19,10 +19,10 @@ def upgrade() -> None:
     # ── repository_manifests ─────────────────────────────
     op.create_table(
         "repository_manifests",
-        sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True),
-        sa.Column("organization_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("organizations.id"), nullable=True),
-        sa.Column("master_job_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("master_verification_jobs.id"), nullable=True),
-        sa.Column("repository_connection_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("repository_connections.id"), nullable=True),
+        sa.Column("id", sa.String(32), primary_key=True),
+        sa.Column("organization_id", sa.String(32), sa.ForeignKey("organizations.id"), nullable=True),
+        sa.Column("master_job_id", sa.String(32), sa.ForeignKey("master_verification_jobs.id"), nullable=True),
+        sa.Column("repository_connection_id", sa.String(32), sa.ForeignKey("repository_connections.id"), nullable=True),
         sa.Column("manifest_version", sa.String(20), nullable=False, server_default="1.0.0"),
         sa.Column("commit_sha", sa.String(64), nullable=False, server_default=""),
         sa.Column("owner", sa.String(255), nullable=False, server_default=""),
@@ -39,9 +39,9 @@ def upgrade() -> None:
     # ── discovery_claims ──────────────────────────────────
     op.create_table(
         "discovery_claims",
-        sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True),
-        sa.Column("manifest_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("repository_manifests.id"), nullable=True),
-        sa.Column("master_job_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("master_verification_jobs.id"), nullable=True),
+        sa.Column("id", sa.String(32), primary_key=True),
+        sa.Column("manifest_id", sa.String(32), sa.ForeignKey("repository_manifests.id"), nullable=True),
+        sa.Column("master_job_id", sa.String(32), sa.ForeignKey("master_verification_jobs.id"), nullable=True),
         sa.Column("claim_type", sa.String(50), nullable=False),
         sa.Column("value", sa.Text, nullable=False),
         sa.Column("source_file", sa.Text, nullable=False, server_default=""),
@@ -56,9 +56,9 @@ def upgrade() -> None:
     # ── discovery_warnings ───────────────────────────────
     op.create_table(
         "discovery_warnings",
-        sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True),
-        sa.Column("manifest_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("repository_manifests.id"), nullable=True),
-        sa.Column("master_job_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("master_verification_jobs.id"), nullable=True),
+        sa.Column("id", sa.String(32), primary_key=True),
+        sa.Column("manifest_id", sa.String(32), sa.ForeignKey("repository_manifests.id"), nullable=True),
+        sa.Column("master_job_id", sa.String(32), sa.ForeignKey("master_verification_jobs.id"), nullable=True),
         sa.Column("warning_type", sa.String(50), nullable=False),
         sa.Column("finding_type", sa.String(100), nullable=False, server_default=""),
         sa.Column("file_path", sa.Text, nullable=False),
@@ -74,8 +74,8 @@ def upgrade() -> None:
     # ── resource_limit_events ────────────────────────────
     op.create_table(
         "resource_limit_events",
-        sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True),
-        sa.Column("master_job_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("master_verification_jobs.id"), nullable=True),
+        sa.Column("id", sa.String(32), primary_key=True),
+        sa.Column("master_job_id", sa.String(32), sa.ForeignKey("master_verification_jobs.id"), nullable=True),
         sa.Column("limit_name", sa.String(100), nullable=False),
         sa.Column("measured_value", sa.String(100), nullable=False, server_default=""),
         sa.Column("occurred_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
